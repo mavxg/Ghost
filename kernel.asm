@@ -258,7 +258,7 @@ inter:	mov	edx, [edi * 4]
 		call [spaces + edx * 4]
 		jmp inter
 spaces:	dd	ignore, execute, imnum, def1
-		dd comp1, nul2, nul2, compmacr
+		dd comp1, compnum, nul2, compmacr
 		dd nul2, nul2, nul2, nul2
 		dd nul2, nul2, nul2, nul2
 ex:		shl	eax,4
@@ -325,6 +325,16 @@ cdup:	mov edx,[here]
 		mov	byte [edx+4],0x06
 		add	edx,5
 		mov	[here],edx
+		ret
+compnum: and al,0xF0
+		 shr eax,4
+		call cdup
+		mov	edx,[here]
+		mov	byte [edx],0xb8	;mov eax,lit
+		mov	dword [edx+1],eax
+		add edx,5
+		mov [here],edx
+		DROP
 		ret
 ;;----editor--------------------
 xy	dd	0x0
