@@ -16,12 +16,6 @@
 	jnz	%1
 %endmacro
 
-%macro	SWAP 0
-	push dword [esi]
-	mov	[esi],eax
-	pop	eax
-%endmacro
-
 code:	;we don't have a code and data section this is a flat binary
 MULTIBOOT_PAGE_ALIGN   equ 1<<0
 MULTIBOOT_MEMORY_INFO  equ 1<<1
@@ -47,7 +41,7 @@ start:
 abort:
 	mov esi, 0xa0000		;set data stack
 	mov esp, 0x9f800		;set return stack
-	mov ebx,0xB8000
+	mov ebx, 0xB8000
 	mov	dword [here],dictionary
 	call clr
 	mov edx,keys
@@ -286,6 +280,35 @@ comma:	mov	edx,[here]
 		mov	[here],edx
 		DROP
 		ret
+;;----editor--------------------
+dispword:	mov	edx,eax
+			and	edx,0xF
+			test	edx,edx
+			jz	.disp
+			_DUP
+			mov	al,[colours + edx]
+			mov	[colour],al
+			DROP
+.disp		jmp [display + edx*4]
+display	dd	dtext, dtext, dno, dtext
+		dd	dtext, dno, dno, dtext
+		dd	dno, dtext, dtext, dtext
+		dd	dtext, dtext, dtext, dtext
+colours	db	0x0,0xe,0xe,0x4,0xa,0xa,0xa,0xb	; x,bright yellow * 2, bright red, bright green*3,cyan
+		db	0xe,0xf,0xf,0xf,0x6,0x0,0x0,0x0 ; bright yellow, white * 3, magenta
+dtext:	and	al,0xF0
+.loop	test	eax,eax
+			jz	.end
+		rol	eax,7
+		_DUP
+		and	eax,0x7F
+		call emit
+		and al,0x80
+		jmp	.loop
+.end	DROP
+		ret
+dno:	DROP
+		ret
 ;;----dictionary----------------
 define:	;inc	dword [forths]
 		shl eax,4
@@ -325,7 +348,8 @@ forth2:	dd	abort
 		dd	clr
 		dd	semi
 		dd  load
-		dd	comma
+		dd	dispword
+		;dd	comma
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
