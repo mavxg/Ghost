@@ -228,20 +228,21 @@ dots:	push	ecx
 		pop		esi
 		pop		ecx
 		ret
-execute: 
-		_DUP
-		mov	eax,[-4+edi*4]
+execute: ;(n -- )
+		;_DUP
+		;mov	eax,[-4+edi*4]
 		and	al,0xF0
-		call find
 		add al,0x01
 		call find	;finding macros
 		jnz	.fort
 			jmp .gogo
 .fort	and al,0xF0
+		call find
 		jnz	abort
 .gogo	DROP
 		jmp	[forth2+ecx*4]
-ignore:	pop edi
+ignore:	DROP ;(n -- )
+		pop edi
 		pop edi
 nul2:	ret
 load:	push edi
@@ -251,10 +252,12 @@ load:	push edi
 inter:	mov	edx, [edi * 4]
 		inc edi
 		and edx,0xf
+		_DUP
+		mov	eax,[-4+edi*4]
 		call [spaces + edx * 4]
 		jmp inter
-spaces:	dd	ignore, execute, nul2, nul2
-		dd nul2, nul2, nul2, nul2
+spaces:	dd	ignore, execute, nul2, def1
+		dd comp1, nul2, nul2, nul2
 		dd nul2, nul2, nul2, nul2
 		dd nul2, nul2, nul2, nul2
 ex:		shl	eax,4
@@ -284,7 +287,7 @@ pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 
 		ret
 ; this is from typing
 compile:shl	eax,4
-		and al,0xF0
+comp1:	and al,0xF0
 		add al,0x01
 		call find	;finding macros
 		jnz	.fort
@@ -351,11 +354,17 @@ tins:	_DUP
 		DROP
 		inc	dword [xy]
 		ret
-ekeys:	dd	nop0,nop0,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
+blkinc	call clr
+		inc	dword [blk]
+		ret
+blkdec	call	clr
+		dec dword [blk]
+		ret
+ekeys:	dd	blkinc,nop0,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
 		dd	grew,eleft,nop0,edown,eup,eright	;g,h,i,j,k,l
 		dd	cyaw,nop0,nop0,nop0,nop0,redw	;m,n,o,p,q,r
 		dd	nop0,nop0,nop0,magw,nop0,nop0	;s,t,u,v,w,x
-		dd	yelw,nop0						;y,z
+		dd	yelw,blkdec						;y,z
 edit:	push edi ;(blk -- )
 		call clr
 		mov edx,keys
@@ -446,7 +455,7 @@ macro	mov	byte [dict],0x1
 dict	db	0x0
 define:	;inc	dword [forths]
 		shl eax,4
-		and al,0xF0
+def1:	and al,0xF0
 		add	al,[dict]
 		_DUP
 		call hdot
