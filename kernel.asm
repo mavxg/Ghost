@@ -257,7 +257,7 @@ inter:	mov	edx, [edi * 4]
 		mov	eax,[-4+edi*4]
 		call [spaces + edx * 4]
 		jmp inter
-spaces:	dd	ignore, execute, nul2, def1
+spaces:	dd	ignore, execute, imnum, def1
 		dd comp1, nul2, nul2, compmacr
 		dd nul2, nul2, nul2, nul2
 		dd nul2, nul2, nul2, nul2
@@ -285,6 +285,9 @@ pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 
 		shl	dword [ESI],7
 		xor	[ESI],al
 		sub byte [ibits],7
+		ret
+imnum:	and al,0xF0
+		shr eax,4
 		ret
 ; this is from typing
 compile:shl	eax,4
