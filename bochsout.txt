@@ -27,11 +27,13 @@
 00000000000i[MEM0 ] rom at 0xf0000/65536 ('/Applications/Bochs-2.1-Carbon/BIOS-bochs-latest')
 00000000000i[MEM0 ] rom at 0xc0000/32768 ('/Applications/Bochs-2.1-Carbon/VGABIOS-elpin-2.40')
 00000000000i[CMOS ] Using local time for initial clock
-00000000000i[CMOS ] Setting initial clock to: Wed Jun 16 12:08:46 2004 (time0=1087384126)
+00000000000i[CMOS ] Setting initial clock to: Mon Jun 21 14:10:42 2004 (time0=1087823442)
 00000000000i[DMA  ] channel 4 used by cascade
 00000000000i[DMA  ] channel 2 used by Floppy Drive
 00000000000i[FDD  ] fd0: 'a.img' ro=0, h=2,t=80,spt=18
-00000000000i[FDD  ] fd1: 'floppyb.img' ro=0, h=2,t=80,spt=18
+00000000000i[FDD  ] tried to open 'floppyb.img' read/write: No such file or directory
+00000000000i[FDD  ] tried to open 'floppyb.img' read only: No such file or directory
+00000000000i[FDD  ] fd1: 'floppyb.img' ro=1, h=0,t=0,spt=0
 00000000000i[KMAP ] Loading keymap from '/Applications/Bochs-2.1-Carbon/keymaps/x11-pc-uk.map'
 00000000000i[KMAP ] Loaded 172 symbols
 00000000000i[VGA  ] interval=30000
@@ -41,8 +43,6 @@
 00000000000i[     ] init_mem of 'parallel' plugin device by virtual method
 00000000000i[     ] init_mem of 'extfpuirq' plugin device by virtual method
 00000000000i[     ] init_dev of 'harddrv' plugin device by virtual method
-00000000000i[HD   ] HD on ata0-0: 'hd10meg.img' 'flat' mode 
-00000000000i[HD   ] translation on ata0-0 set to 'none'
 00000000000i[HD   ] Boot device will be 'a'
 00000000000i[HD   ] Floppy boot signature check is enabled
 00000000000i[     ] init_dev of 'keyboard' plugin device by virtual method
@@ -82,26 +82,26 @@
 00000330000e[VGA  ] character height = 1, skipping text update
 00000330064i[KBD  ] reset-disable command received
 00000345000e[VGA  ] character height = 1, skipping text update
-00002365894i[BIOS ] ata0-0: PCHS=306/4/17 translation=none LCHS=306/4/17
-00002383559e[HD   ] device set to 1 which does not exist
-00003391500p[MGUI ] >>PANIC<< POWER button turned off.
-00003391500i[SYS  ] Last time is 1087384132
-00003391500i[CPU  ] protected mode
-00003391500i[CPU  ] CS.d_b = 32 bit
-00003391500i[CPU  ] SS.d_b = 32 bit
-00003391500i[CPU  ] | EAX=60000010  EBX=00000000  ECX=00000000  EDX=00000000
-00003391500i[CPU  ] | ESP=00090000  EBP=00000000  ESI=00007c75  EDI=000b800a
-00003391500i[CPU  ] | IOPL=0 NV UP DI PL NZ NA PE NC
-00003391500i[CPU  ] | SEG selector     base    limit G D
-00003391500i[CPU  ] | SEG sltr(index|ti|rpl)     base    limit G D
-00003391500i[CPU  ] |  DS:0010( 0002| 0|  0) 00000000 000fffff 1 1
-00003391500i[CPU  ] |  ES:0010( 0002| 0|  0) 00000000 000fffff 1 1
-00003391500i[CPU  ] |  FS:0000( 0000| 0|  0) 00000000 0000ffff 0 0
-00003391500i[CPU  ] |  GS:0000( 0000| 0|  0) 00000000 0000ffff 0 0
-00003391500i[CPU  ] |  SS:0010( 0002| 0|  0) 00000000 000fffff 1 1
-00003391500i[CPU  ] |  CS:0008( 0001| 0|  0) 00000000 000fffff 1 1
-00003391500i[CPU  ] | EIP=00007c4b (00007c4b)
-00003391500i[CPU  ] | CR0=0x60000011 CR1=0x00000000 CR2=0x00000000
-00003391500i[CPU  ] | CR3=0x00000000 CR4=0x00000000
-00003391500i[     ] restoring default signal behavior
-00003391500i[CTRL ] quit_sim called with exit code 1
+00002359148e[HD   ] device set to 0 which does not exist
+00002359441e[HD   ] device set to 1 which does not exist
+00004469000p[MGUI ] >>PANIC<< POWER button turned off.
+00004469000i[SYS  ] Last time is 1087823450
+00004469000i[CPU  ] protected mode
+00004469000i[CPU  ] CS.d_b = 32 bit
+00004469000i[CPU  ] SS.d_b = 32 bit
+00004469000i[CPU  ] | EAX=60000010  EBX=00000000  ECX=00000000  EDX=00000000
+00004469000i[CPU  ] | ESP=00090000  EBP=00000000  ESI=00007c75  EDI=000b800a
+00004469000i[CPU  ] | IOPL=0 NV UP DI PL NZ NA PE NC
+00004469000i[CPU  ] | SEG selector     base    limit G D
+00004469000i[CPU  ] | SEG sltr(index|ti|rpl)     base    limit G D
+00004469000i[CPU  ] |  DS:0010( 0002| 0|  0) 00000000 000fffff 1 1
+00004469000i[CPU  ] |  ES:0010( 0002| 0|  0) 00000000 000fffff 1 1
+00004469000i[CPU  ] |  FS:0000( 0000| 0|  0) 00000000 0000ffff 0 0
+00004469000i[CPU  ] |  GS:0000( 0000| 0|  0) 00000000 0000ffff 0 0
+00004469000i[CPU  ] |  SS:0010( 0002| 0|  0) 00000000 000fffff 1 1
+00004469000i[CPU  ] |  CS:0008( 0001| 0|  0) 00000000 000fffff 1 1
+00004469000i[CPU  ] | EIP=00007c4b (00007c4b)
+00004469000i[CPU  ] | CR0=0x60000011 CR1=0x00000000 CR2=0x00000000
+00004469000i[CPU  ] | CR3=0x00000000 CR4=0x00000000
+00004469000i[     ] restoring default signal behavior
+00004469000i[CTRL ] quit_sim called with exit code 1
