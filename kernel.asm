@@ -47,12 +47,10 @@ abort:
 	mov edx,keys
 	mov	[board],edx
 	_DUP
-	mov	eax,forth0
-	call	hdot
-	_DUP
-	mov	eax,dictionary
-	call	hdot
-	_DUP
+	mov	eax,0x48;forth0
+	;call	hdot
+	;call	load
+	;_DUP
 preaccept:
 	_DUP
 	xor	eax,eax
@@ -289,6 +287,127 @@ pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 
 imnum:	and al,0xF0
 		shr eax,4
 		ret
+dma:	;(buffer -- )
+		_DUP
+		mov	word [command+1],0x2a1
+		mov al,3
+		mov cl,3
+		call cmd
+		mov	word [command+1],0
+		DROP ;mov	eax,0x4800
+		shl	eax, 2
+		out 4, al
+		mov	al, ah
+		out 4, al
+		shr	eax, 16
+		out 0x81, al
+		mov	eax, 512*18*2-1
+		out 5, al
+		mov al, ah
+		out 5, al
+		mov	al, 0x0b
+		out	0x0f, al
+		DROP
+		ret
+command:	
+		db	0
+		db	0
+cylinder:
+		db	0	;cylinder
+		db	0 ;head 
+		db	2;1	; sector
+		db	2	; b/s
+		db	18
+		db	0x1b
+		db	0xFF
+cmd:	push	esi
+		mov	esi,command
+		mov	[esi], al
+cmd1:	call	ready
+		jns	.out
+			in	al,dx
+			out 0xe1,al
+			jmp cmd1
+.out	lodsb
+		out	dx,al
+		push	ecx
+ol:		mov	ecx,0x1e
+			out	0xe1,al
+;			loop ol
+		pop	ecx
+		next cmd1
+		pop esi
+		ret
+ms equ	1000*1000/4
+onoff:	mov	edx,0x3f2
+		out	dx,al
+		mov	cx, 0xe
+.loop	out	0xe1,al
+		loop .loop
+		ret
+ready:	mov	edx,0x3f4
+.loop		in al,dx
+			out	0xe1,al
+			shl	al,1
+			jnc .loop
+		inc edx
+		test	al,al
+		ret
+sense_:	mov al, 8
+		mov	cl, 1
+		call cmd
+		call ready
+		in al, dx
+		out 0xe1,al
+		cmp al,0x80
+		ret
+spin:	
+		;push ecx
+		xor ecx,ecx
+		mov	al, 0x1c
+		call onoff
+.loop	;mov	ecx, 400*ms
+		;loop .loop
+		mov	byte [cylinder],0
+		mov	al,7
+		mov cl,2
+		jmp cmdi
+		
+seek:
+		;push ecx
+		call sense_
+			jz	seek
+		mov al, 0xf
+		mov cl,3
+cmdi:	call cmd
+.loop	call sense_
+			jz	.loop
+		;pop ecx	
+		ret
+transfer:	mov cl,9
+			call cmd
+			;inc byte [cylinder]
+.loop		call	ready
+			jns	.loop
+		DROP
+		ret	
+read:	;_DUP
+		;xor	eax,eax
+		;mov	al,[cylinder]
+		;call hdot
+		mov	[cylinder],al
+		mov al, 0x16
+		out	0xb, al
+		call seek
+		mov al, 0xe6 ; read data +mt + mfm +sk
+		jmp transfer
+write:
+		mov	[cylinder],al
+		mov al, 0x1a
+		out 0xb, al
+		call seek
+		mov al, 0xc5
+		jmp transfer
 ; this is from typing
 compile:shl	eax,4
 comp1:	and al,0xF0
@@ -314,9 +433,16 @@ compmacr:	and al,0xF0
 			call find
 			jnz	abort
 			jmp comp2
-comma:	mov	edx,[here]
+comma1:	mov	ecx,1
+		jmp commas
+comma2:	mov ecx,2
+		jmp commas
+comma3:	mov ecx,3
+		jmp commas
+comma:	mov	ecx,4
+commas:	mov	edx,[here]
 		mov	[edx],eax
-		add	edx,4
+		add	edx,ecx
 		mov	[here],edx
 		DROP
 		ret
@@ -336,6 +462,7 @@ compnum: and al,0xF0
 		mov [here],edx
 		DROP
 		ret
+variable:			
 ;;----editor--------------------
 xy	dd	0x0
 blk	dd	0x48
@@ -497,6 +624,9 @@ dno:
 		call hdot
 		ret
 ;;----dictionary----------------
+gethere	_DUP
+		mov	eax,[here]
+		ret
 forth	mov	byte [dict],0x0
 		ret
 macro	mov	byte [dict],0x1
@@ -517,7 +647,7 @@ def1:	and al,0xF0
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x0000000F	;number of entries in dictionary
+forths	dd	0x00000017	;number of entries in dictionary
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
@@ -530,9 +660,17 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0xD9BF0E40	; load
 		dd	0xCB934F40	; edit
 		dd	0x2C0	; ","
+		dd	0x18AC0	; 1,
+		dd	0x192C0	; 2,
+		dd	0x19AC0	; 3,
 		dd	0xCDBF9740	; fort
 		dd	0xDB871F20	; macr
 		dd	0x193AF01	; dup (macro)
+		dd	0xD1979650	; here
+		dd	0x1936e10	; dma
+		dd	0xa5160c40	; READ
+		dd	0xaf4a4d40	; WRIT(E)
+		dd	0xa7424ce0	; SPIN
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -547,9 +685,17 @@ forth2:	dd	abort
 		dd  load
 		dd	edit
 		dd	comma
+		dd	comma1
+		dd	comma2
+		dd	comma3
 		dd	forth
 		dd	macro
 		dd	cdup
+		dd	gethere
+		dd	dma
+		dd	read
+		dd 	write
+		dd	spin
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
@@ -560,14 +706,15 @@ gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
 
 times	0x2000 - ($ - $$) db 0
-blocks:	;block 48
-	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
-times	0x2400 - ($ - $$) db 0 ;block 49
-	dd	0x12346, 0x12126, 0x0 ; 1234 1212 
-times	0x2800 - ($ - $$) db 0 ;block 4a
-	dd	0x12789 
+;blocks:	;block 48
+;	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
+;times	0x2400 - ($ - $$) db 0 ;block 49
+;	dd	0x12346, 0x12126, 0x0 ; 1234 1212 
+;times	0x2800 - ($ - $$) db 0 ;block 4a
+;	dd	0x12789 
 ;; space for 10 blocks - this is temporary till we get the memory layout sorted.
-times	0x4800 - ($ - $$) db 0
+;times	0x4800 - ($ - $$) db 0
+incbin "blocks.bin"
 end:	;because we are a flat binary
 edata:
 dictionary:
