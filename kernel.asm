@@ -281,6 +281,33 @@ comma:	mov	edx,[here]
 		DROP
 		ret
 ;;----editor--------------------
+xy	dd	0x0
+dispblock:	call clr
+			push edi
+			shl	eax,8 ;	eax now points to start of block (32bits)
+			mov	edi,eax
+			DROP
+			mov	ecx,0x15
+.outloop	push ecx
+			push ebx
+			mov	ecx,0xc
+.inloop		_DUP
+			mov	eax,[edi*4]
+			inc edi
+			push ecx
+			call dispword
+			pop ecx
+			next .inloop
+			pop	ebx
+			add ebx,0xa0	;advance one line
+			pop ecx
+			next	.outloop
+			pop edi
+			mov	byte [colour],0x1	;blue
+			_DUP
+			mov	eax,[xy]
+			call	hdot
+			ret
 dispword:	mov	edx,eax
 			and	edx,0xF
 			test	edx,edx
@@ -307,7 +334,9 @@ dtext:	and	al,0xF0
 		jmp	.loop
 .end	DROP
 		ret
-dno:	DROP
+dno:	
+		shr	eax,4
+		call hdot
 		ret
 ;;----dictionary----------------
 define:	;inc	dword [forths]
@@ -348,7 +377,7 @@ forth2:	dd	abort
 		dd	clr
 		dd	semi
 		dd  load
-		dd	dispword
+		dd	dispblock
 		;dd	comma
 		times 512 dd 0x0		;space for user words
 		
@@ -360,8 +389,12 @@ gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
 
 times	0x2000 - ($ - $$) db 0
-blocks:
+blocks:	;block 48
 	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
+times	0x2400 - ($ - $$) db 0 ;block 49
+	dd	0x12346, 0x12126, 0x0 ; 1234 1212 
+times	0x2800 - ($ - $$) db 0 ;block 4a
+	dd	0x12789 
 ;; space for 10 blocks - this is temporary till we get the memory layout sorted.
 times	0x4800 - ($ - $$) db 0
 end:	;because we are a flat binary
