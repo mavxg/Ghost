@@ -311,6 +311,12 @@ comma:	mov	edx,[here]
 		mov	[here],edx
 		DROP
 		ret
+cdup:	mov edx,[here]
+		mov	dword [edx],0x89fc768d
+		mov	byte [edx+4],0x06
+		add	edx,5
+		mov	[here],edx
+		ret
 ;;----editor--------------------
 xy	dd	0x0
 blk	dd	0x48
@@ -354,15 +360,39 @@ tins:	_DUP
 		DROP
 		inc	dword [xy]
 		ret
+numbnow: mov eax,0x2
+		jmp numbs
+numb:	mov	eax,0x5
+numbs:	_DUP
+		xor eax,eax
+.loop	call	KEY
+		cmp	al,0
+		jz	.end
+		call	numpack
+		DROP
+		jmp	.loop
+.end	;move stuff from stack and gogo dance
+		DROP
+		push	edi
+		shl	eax,4
+		add	eax,[esi]	;we will have the word type here at NOS
+		mov	edi,[blk]
+		shl	edi,8
+		add edi,[xy]
+		mov	[edi*4],eax
+		pop	edi
+		DROP
+		inc	dword [xy]
+		ret
 blkinc	call clr
 		inc	dword [blk]
 		ret
 blkdec	call	clr
 		dec dword [blk]
 		ret
-ekeys:	dd	blkinc,nop0,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
+ekeys:	dd	blkinc,numbnow,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
 		dd	grew,eleft,nop0,edown,eup,eright	;g,h,i,j,k,l
-		dd	cyaw,nop0,nop0,nop0,nop0,redw	;m,n,o,p,q,r
+		dd	cyaw,numb,nop0,nop0,nop0,redw	;m,n,o,p,q,r
 		dd	nop0,nop0,nop0,magw,nop0,nop0	;s,t,u,v,w,x
 		dd	yelw,blkdec						;y,z
 edit:	push edi ;(blk -- )
@@ -468,7 +498,7 @@ def1:	and al,0xF0
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x0000000E	;number of entries in dictionary
+forths	dd	0x0000000F	;number of entries in dictionary
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
@@ -477,12 +507,13 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x2E0	;.
 		dd	0x17730	;.s
 		dd	0x18f6720 ;clr
-		dd	0x3B1	;  ";"
+		dd	0x3B1	;  ";" (macro)
 		dd	0xD9BF0E40	; load
 		dd	0xCB934F40	; edit
 		dd	0x2C0	; ","
 		dd	0xCDBF9740	; fort
 		dd	0xDB871F20	; macr
+		dd	0x193AF01	; dup (macro)
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -499,6 +530,7 @@ forth2:	dd	abort
 		dd	comma
 		dd	forth
 		dd	macro
+		dd	cdup
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
