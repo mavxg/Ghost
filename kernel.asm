@@ -43,11 +43,12 @@ abort:
 	mov esp, 0x9f800		;set return stack
 	mov ebx, 0xB8000
 	mov	dword [here],dictionary
+	mov dword [forths],0x16
 	call clr
 	mov edx,keys
 	mov	[board],edx
 	_DUP
-	mov	eax,0x48;forth0
+	mov	eax,0x4d;forth0
 	;call	hdot
 	;call	load
 	;_DUP
@@ -56,7 +57,9 @@ preaccept:
 	xor	eax,eax
 	mov	dword [chars],0x0
 accept:
+	push edx
 	call KEY
+	pop edx
 	cmp	al,0x06	;temporary backspace
 	jne	.ne
 	sub	ebx,[chars]
@@ -267,7 +270,7 @@ inter:	mov	edx, [edi * 4]
 spaces:	dd	ignore, execute, imnum, def1
 		dd comp1, compnum, nul2, compmacr
 		dd nul2, nul2, nul2, nul2
-		dd variable, nul2, nul2, nul2
+		dd variable, stringlit, nul2, nul2
 ex:		shl	eax,4
 		and al,0xF0
 		;add al,0x01
@@ -480,7 +483,22 @@ variable:
 		;_DUP
 		;call hdot
 		ret
-		
+stringlit:
+		and	al,0xF0
+.loop	test	eax,eax
+			jz	.end
+		rol	eax,7
+		_DUP
+		and	eax,0x7F
+		jnz .emit
+			DROP
+			jmp .postemit
+.emit	call comma1
+.postemit	and al,0x80
+		jmp	.loop
+.end	DROP
+		ret
+
 var1:	;use side effect that ecx contains word number in dictionary
 		_DUP
 		mov eax,[8+forth2+ecx*4]
@@ -499,178 +517,6 @@ litral:	call cdup
 		mov [here],edx
 		DROP
 		ret
-;;----editor--------------------
-xy	dd	0x0
-blk	dd	0x48
-eleft:	dec	dword [xy]
-		ret
-eright:	inc	dword [xy]
-		ret
-eup:	sub dword [xy],0xc
-		ret
-edown:	add dword [xy],0xc
-		ret
-redw:	mov	eax,0x3
-		jmp tins
-grew:	mov eax,0x4
-		jmp tins
-whiw:	mov eax,0x9
-		jmp tins
-cyaw:	mov eax,0x7
-		jmp tins
-magw:	mov eax,0xc
-		jmp tins
-yelw:	mov	eax,0x1		
-tins:	_DUP
-		xor eax,eax
-.loop	call	KEY
-		cmp	al,0
-		jz	.end
-		call	pack
-		DROP
-		jmp	.loop
-.end	;move stuff from stack and gogo dance
-		DROP
-gogo:	push	edi
-		shl	eax,4
-		add	eax,[esi]	;we will have the word type here at NOS
-		mov	edi,[blk]
-		shl	edi,8
-		add edi,[xy]
-		mov	[edi*4],eax
-		pop	edi
-		DROP
-		inc	dword [xy]
-		ret
-numbnow: mov eax,0x2
-		jmp numbs
-numb:	mov	eax,0x5
-numbs:	_DUP
-		xor eax,eax
-.loop	call	KEY
-		cmp	al,0
-		jz	.end
-		call	numpack
-		DROP
-		jmp	.loop
-.end	;move stuff from stack and gogo dance
-		DROP
-		push	edi
-		shl	eax,4
-		add	eax,[esi]	;we will have the word type here at NOS
-		mov	edi,[blk]
-		shl	edi,8
-		add edi,[xy]
-		mov	[edi*4],eax
-		pop	edi
-		DROP
-		inc	dword [xy]
-		ret
-blkinc	call clr
-		inc	dword [blk]
-		ret
-blkdec	call	clr
-		dec dword [blk]
-		ret
-delt:	xor eax,eax
-		_DUP
-		xor eax,eax
-		jmp gogo		
-ekeys:	dd	blkinc,numbnow,whiw,delt,nop0,nop0	;a,b,c,d,e,f
-		dd	grew,eleft,nop0,edown,eup,eright	;g,h,i,j,k,l
-		dd	cyaw,numb,nop0,nop0,nop0,redw	;m,n,o,p,q,r
-		dd	nop0,nop0,nop0,magw,nop0,nop0	;s,t,u,v,w,x
-		dd	yelw,blkdec						;y,z
-edit:	push edi ;(blk -- )
-		call clr
-		mov edx,keys
-		DROP
-.loop	call	dispblock
-		call	KEY
-		_DUP
-		call hdot
-		cmp	al,0x1B	;was esc pressed?
-		je .end		;yes
-		cmp	eax,'a'
-		jb	.ctrlend
-		cmp	eax,'z'
-		ja	.ctrlend
-		sub	eax,'a'
-		call	[ekeys + eax * 4]
-.ctrlend:
-		DROP
-		call clr
-		jmp	.loop
-.end	DROP
-		call	clr
-		pop	edi
-		ret
-dispblock:	mov	ebx,0xb8000;call clr
-			push edi
-			mov	edi,[blk]
-			shl	edi,8 ;	eax now points to start of block (32bits)
-			mov	ecx,0x15
-.outloop	push ecx
-			push ebx
-			mov	ecx,0xc
-.inloop		_DUP
-			mov	eax,[edi*4]
-			inc edi
-			push ecx
-			call dispword
-			pop ecx
-			next .inloop
-			pop	ebx
-			add ebx,0xa0	;advance one line
-			pop ecx
-			next	.outloop
-			pop edi
-			mov	byte [colour],0x1	;blue
-			_DUP
-			mov	eax,[xy]
-			call	hdot
-			ret
-dispword:	mov	edx,eax
-			and	edx,0xF
-			test	edx,edx
-			jz	.disp
-			_DUP
-			mov	al,[colours + edx]
-			mov	[colour],al
-			DROP
-.disp		jmp [display + edx*4]
-display	dd	dbtext, dtext, dno, dtext
-		dd	dtext, dno, dno, dtext
-		dd	dno, dtext, dtext, dtext
-		dd	dtext, dtext, dtext, dtext
-colours	db	0x0,0xe,0xe,0x4,0xa,0xa,0xa,0xb	; x,bright yellow * 2, bright red, bright green*3,cyan
-		db	0xe,0xf,0xf,0xf,0x6,0x0,0x0,0x0 ; bright yellow, white * 3, magenta
-dbtext:	test eax,eax
-		jnz .com
-			mov eax,0x16
-			jmp dtext
-.com	dec ebx
-		dec	ebx
-dtext:	and	al,0xF0
-.loop	test	eax,eax
-			jz	.end
-		rol	eax,7
-		_DUP
-		and	eax,0x7F
-		jnz .emit
-			DROP
-			jmp .postemit
-.emit	call emit
-.postemit	and al,0x80
-		jmp	.loop
-.end	DROP
-		inc ebx
-		inc ebx
-		ret
-dno:	
-		shr	eax,4
-		call hdot
-		ret
 ;;----dictionary----------------
 gethere	_DUP
 		mov	eax,[here]
@@ -683,6 +529,8 @@ dict	db	0x0
 define:	;inc	dword [forths]
 		shl eax,4
 def1:	and al,0xF0
+		;_DUP
+		;call hdot
 		add	al,[dict]
 		mov	ecx,[forths]
 		mov	[forth0 + ecx*4],eax
@@ -693,7 +541,7 @@ def1:	and al,0xF0
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x00000015	;number of entries in dictionary
+forths	dd	0x0
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
@@ -703,7 +551,6 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x18f6720 ;clr
 		dd	0x3B1	;  ";" (macro)
 		dd	0xD9BF0E40	; load
-		dd	0xCB934F40	; edit
 		dd	0x2C0	; ","
 		dd	0x18AC0	; 1,
 		dd	0x192C0	; 2,
@@ -715,6 +562,8 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0xa5160c40	; READ
 		dd	0xaf4a4d40	; WRIT(E)
 		dd	0xa7424ce0	; SPIN
+		dd	0xe1871eb0	; pack
+		dd	0xddd76f00	; nump
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -726,7 +575,6 @@ forth2:	dd	abort
 		dd	clr
 		dd	semi
 		dd  load
-		dd	edit
 		dd	comma
 		dd	comma1
 		dd	comma2
@@ -738,6 +586,8 @@ forth2:	dd	abort
 		dd	read
 		dd 	write
 		dd	spin
+		dd  pack
+		dd	numpack
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
