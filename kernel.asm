@@ -126,15 +126,18 @@ shift	db	0x0, 0x1B,'!','@','£','$','%','^','&','*','(',')','_','+',0 	; null,ESC
 		db	'*',0x0,' ',0x0,1,2,3,4										; alt,space, ,f1,f2,f3
 board	dd	keys
 colour	db 0x07	; grey
+ctrl	db 0x0
 KEY:	_DUP	
-		mov		edx,[board]
+		mov	edx,[board]
 		xor		eax,eax		;clear eax
 	 .loop:		;call pause - switch to other stuff while we
-							;wait for a key press
+				;wait for a key press
 			in		al, 0x64	;check if key press waiting
 			test	al, 1
 			jz		.loop
 		in		al, 0x60	;get waiting key
+		;_DUP
+		;call hdot
 		cmp		al, 0xAA	;l.Shft up
 		jne		.kb1
 			mov	EDX,keys
@@ -148,9 +151,17 @@ KEY:	_DUP
 			mov	EDX,shift
 			jmp .loop	
 .kb3:	cmp		al,	0x36	;r.shift down
-		jne		.kbspecnd
+		jne		.kb4
 			mov EDX,shift
 			jmp .loop
+.kb4	cmp		al, 0x1d	;l.ctrl down
+		jne		.kb5
+			mov	byte [ctrl],0x1
+			jmp	.loop
+.kb5	cmp		al, 0x9D	;l.ctrl	up
+		jne		.kbspecnd
+			mov	byte [ctrl],0x0
+			jmp	.loop
 .kbspecnd	cmp		al,	0x3f		;ignore key ups and after f4
 		jnc		.loop
 		
@@ -222,8 +233,13 @@ execute:
 		mov	eax,[-4+edi*4]
 		and	al,0xF0
 		call find
+		add al,0x01
+		call find	;finding macros
+		jnz	.fort
+			jmp .gogo
+.fort	and al,0xF0
 		jnz	abort
-		DROP
+.gogo	DROP
 		jmp	[forth2+ecx*4]
 ignore:	pop edi
 		pop edi
@@ -243,9 +259,14 @@ spaces:	dd	ignore, execute, nul2, nul2
 		dd nul2, nul2, nul2, nul2
 ex:		shl	eax,4
 		and al,0xF0
+		add al,0x01
+		call find	;finding macros
+		jnz	.fort
+			jmp .gogo
+.fort	and al,0xF0
 		call find
 		jnz	abort
-		DROP
+.gogo	DROP
 		jmp	[forth2+ecx*4]
 find:	mov ecx,[forths]
 		push edi		;save edi state
@@ -261,8 +282,15 @@ pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 
 		xor	[ESI],al
 		sub byte [ibits],7
 		ret
+; this is from typing
 compile:shl	eax,4
 		and al,0xF0
+		add al,0x01
+		call find	;finding macros
+		jnz	.fort
+			DROP
+			jmp	[forth2+ecx*4]
+.fort	and al,0xF0
 		call find
 		jnz	abort
 		mov	eax,[forth2+ecx*4]
@@ -282,11 +310,79 @@ comma:	mov	edx,[here]
 		ret
 ;;----editor--------------------
 xy	dd	0x0
-dispblock:	call clr
+blk	dd	0x48
+eleft:	dec	dword [xy]
+		ret
+eright:	inc	dword [xy]
+		ret
+eup:	sub dword [xy],0xc
+		ret
+edown:	add dword [xy],0xc
+		ret
+redw:	mov	eax,0x3
+		jmp tins
+grew:	mov eax,0x4
+		jmp tins
+whiw:	mov eax,0x9
+		jmp tins
+cyaw:	mov eax,0x7
+		jmp tins
+magw:	mov eax,0xc
+		jmp tins
+yelw:	mov	eax,0x1		
+tins:	_DUP
+		xor eax,eax
+.loop	call	KEY
+		cmp	al,0
+		jz	.end
+		call	pack
+		DROP
+		jmp	.loop
+.end	;move stuff from stack and gogo dance
+		DROP
+		push	edi
+		shl	eax,4
+		add	eax,[esi]	;we will have the word type here at NOS
+		mov	edi,[blk]
+		shl	edi,8
+		add edi,[xy]
+		mov	[edi*4],eax
+		pop	edi
+		DROP
+		inc	dword [xy]
+		ret
+ekeys:	dd	nop0,nop0,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
+		dd	grew,eleft,nop0,edown,eup,eright	;g,h,i,j,k,l
+		dd	cyaw,nop0,nop0,nop0,nop0,redw	;m,n,o,p,q,r
+		dd	nop0,nop0,nop0,magw,nop0,nop0	;s,t,u,v,w,x
+		dd	yelw,nop0						;y,z
+edit:	push edi ;(blk -- )
+		call clr
+		mov edx,keys
+		DROP
+.loop	call	dispblock
+		call	KEY
+		_DUP
+		call hdot
+		cmp	al,0x1B	;was esc pressed?
+		je .end		;yes
+		cmp	eax,'a'
+		jb	.ctrlend
+		cmp	eax,'z'
+		ja	.ctrlend
+		sub	eax,'a'
+		call	[ekeys + eax * 4]
+.ctrlend:
+		DROP
+		jmp	.loop
+.end	DROP
+		call	clr
+		pop	edi
+		ret
+dispblock:	mov	ebx,0xb8000;call clr
 			push edi
-			shl	eax,8 ;	eax now points to start of block (32bits)
-			mov	edi,eax
-			DROP
+			mov	edi,[blk]
+			shl	edi,8 ;	eax now points to start of block (32bits)
 			mov	ecx,0x15
 .outloop	push ecx
 			push ebx
@@ -317,12 +413,14 @@ dispword:	mov	edx,eax
 			mov	[colour],al
 			DROP
 .disp		jmp [display + edx*4]
-display	dd	dtext, dtext, dno, dtext
+display	dd	dbtext, dtext, dno, dtext
 		dd	dtext, dno, dno, dtext
 		dd	dno, dtext, dtext, dtext
 		dd	dtext, dtext, dtext, dtext
 colours	db	0x0,0xe,0xe,0x4,0xa,0xa,0xa,0xb	; x,bright yellow * 2, bright red, bright green*3,cyan
 		db	0xe,0xf,0xf,0xf,0x6,0x0,0x0,0x0 ; bright yellow, white * 3, magenta
+dbtext:	dec ebx
+		dec	ebx
 dtext:	and	al,0xF0
 .loop	test	eax,eax
 			jz	.end
@@ -333,15 +431,23 @@ dtext:	and	al,0xF0
 		and al,0x80
 		jmp	.loop
 .end	DROP
+		inc ebx
+		inc ebx
 		ret
 dno:	
 		shr	eax,4
 		call hdot
 		ret
 ;;----dictionary----------------
+forth	mov	byte [dict],0x0
+		ret
+macro	mov	byte [dict],0x1
+		ret
+dict	db	0x0
 define:	;inc	dword [forths]
 		shl eax,4
 		and al,0xF0
+		add	al,[dict]
 		_DUP
 		call hdot
 		mov	ecx,[forths]
@@ -353,7 +459,7 @@ define:	;inc	dword [forths]
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x0000000B		;number of entries in dictionary
+forths	dd	0x0000000E	;number of entries in dictionary
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
@@ -362,9 +468,12 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x2E0	;.
 		dd	0x17730	;.s
 		dd	0x18f6720 ;clr
-		dd	0x3B0	;  ";"
+		dd	0x3B1	;  ";"
 		dd	0xD9BF0E40	; load
+		dd	0xCB934F40	; edit
 		dd	0x2C0	; ","
+		dd	0xCDBF9740	; fort
+		dd	0xDB871F20	; macr
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -377,8 +486,10 @@ forth2:	dd	abort
 		dd	clr
 		dd	semi
 		dd  load
-		dd	dispblock
-		;dd	comma
+		dd	edit
+		dd	comma
+		dd	forth
+		dd	macro
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
