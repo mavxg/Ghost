@@ -41,29 +41,50 @@ start:
 abort:
 	mov esi, 0xa0000		;set data stack
 	mov esp, 0x9f800		;set return stack
-	
 	mov ebx,0xB8000
-;---test code----	
+	call clr
+	mov edx,keys
+	mov	[board],edx
 	_DUP
-	mov	eax,0x12345678
 	_DUP
-	mov eax,0x6
-	call ex
-;---test code----	
+	_DUP
+preaccept:
+	_DUP
+	xor	eax,eax
 accept:
 	call KEY
+	cmp		al,'.'
+	jne		.ne
+		call dots
+.ne		
+	cmp	al,' '
+	jne	.af
+		call emit
+		call ex
+		jmp preaccept
+.af:
+	_DUP
 	call emit
+	call pack
+	DROP
 	jmp accept
 	jmp	$					;loop forever (v.important)
 
 ;;---------------------Basic Words---------------------
 keys	db	0x0, 0x1B,'1','2','3','4','5','6','7','8','9','0','-','=',0 	; null,ESC,BKSP
 		db	0x0,'q','w','e','r','t','y','u','i','o','p','[',']',0			; tab,cr 
-		db	0x0,'a','s','d','f','g','h','j','k','l',0,0,0
+		db	0x0,'a','s','d','f','g','h','j','k','l',';',0,'\'
 		db	0x0,' ','z','x','c','v','b','n','m',',','.','/',0				; lshft,rshft
-		db	'*',0x0,' '													; alt,space
-		
-KEY:	_DUP	;make interupt driven in next version
+		db	'*',0x0,' ',0x0,'1','2','3'							; alt,space
+shift	db	0x0, 0x1B,'!','@','£','$','%','^','&','*','(',')','_','+',0 	; null,ESC,BKSP
+		db	0x0,'Q','W','E','R','T','Y','U','I','O','P','{','}',0			; tab,cr 
+		db	0x0,'A','S','D','F','G','H','J','K','L',':','"','|'
+		db	0x0,'~','Z','X','C','V','B','N','M','<','>','?',0				; lshft,rshft
+		db	'*',0x0,' ',0x0,1,2,3										; alt,space, ,f1,f2,f3
+board	dd	keys
+colour	db 0x07	; grey
+KEY:	_DUP	
+		mov		edx,[board]
 		xor		eax,eax		;clear eax
 	 .loop:		;call pause - switch to other stuff while we
 							;wait for a key press
@@ -71,14 +92,37 @@ KEY:	_DUP	;make interupt driven in next version
 			test	al, 1
 			jz		.loop
 		in		al, 0x60	;get waiting key
-		cmp		al,	72o		;0x3A (00111010)	;ignore key ups
+		cmp		al, 0xAA	;l.Shft up
+		jne		.kb1
+			mov	EDX,keys
+			jmp .loop	
+.kb1:	cmp		al,	0xB6	;r.shift up
+		jne		.kb2
+			mov EDX,keys
+			jmp .loop
+.kb2:	cmp		al, 0x2A	;l.Shft down
+		jne		.kb3
+			mov	EDX,shift
+			jmp .loop	
+.kb3:	cmp		al,	0x36	;r.shift down
+		jne		.kbspecnd
+			mov EDX,shift
+			jmp .loop
+.kbspecnd	cmp		al,	0x3e		;ignore key ups and after f3
 		jnc		.loop
-		mov		al,[keys+eax]
+		
+		mov		al,[edx+eax]
+		mov		[board],edx
 		ret		;return traslated key on stack
-
-emit:	mov	[ebx],al
+clr:	mov ebx,0xB8000
+		mov	ecx,0x7d0
+.loop	mov	word [ebx-2+ecx*2],0x0b20
+		next .loop
+		ret
+emit:	mov	ah,[colour]
+		mov	[ebx],ax
 		DROP
-space:	add	ebx,2
+space:	add ebx,2
 		ret
 plus:	add [esi],eax	;add tos to nos
 		DROP
@@ -95,6 +139,20 @@ hdot:	mov	ecx,8		;loop over the 8 hex digits in a cell
 		mov	eax,' '
 		call emit
 		ret
+dots:	push	ecx
+		push	esi
+		push	eax
+		mov		ecx, 0xa0000
+		sub		ecx, esi
+		shr		ecx,2
+.loop	push	ecx
+		call	hdot
+		pop		ecx
+		next	.loop
+		pop		eax
+		pop		esi
+		pop		ecx
+		ret
 ex:		call find
 		jnz	abort
 		DROP
@@ -107,15 +165,23 @@ find:	mov ecx,[forths]
 		cld
 		pop	edi
 		ret
+ibits:	db	0x28
+pack:	and	al,0xEF		;this implementation is very fragile - do not type more than 4 characters
+		shl	dword [ESI],7
+		xor	[ESI],al
+		sub byte [ibits],7
+		ret
 ;;----dictionary----------------
 ;lables
-forths	dd	0x00000006		;number of entries in dictionary
-forth0:	dd	0x1		;abort
+forths	dd	0x00000008		;number of entries in dictionary
+forth0:	dd	0x1		;abor(t)
 		dd	0x2		;key
-		dd	0x3		;emit
-		dd	0x4		;space
-		dd	0x5		;+
-		dd	0x6		;.
+		dd	0xCBB74E4	;emit
+		dd	0x4		;spac(e)
+		dd	0x2B	;+
+		dd	0x2E	;.
+		dd	0x1763	;.s
+		dd	0x18f662 ;clr
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -124,6 +190,8 @@ forth2:	dd	abort
 		dd	space
 		dd	plus
 		dd	hdot
+		dd	dots
+		dd	clr
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
@@ -134,4 +202,4 @@ gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
 end:	;because we are a flat binary
 edata:
-
+dictionary:
