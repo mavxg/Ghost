@@ -111,7 +111,7 @@ accept1:
 	jmp	$					;loop forever (v.important)
 here	dd	dictionary	
 packs	dd	pack, numpack, pack, pack	
-ex_s		dd	ex, nop0,	nop0, nop0
+ex_s		dd	ex, nop0,	compile, define
 ccol	db	0x07, 0x08, 0x06, 0x05
 cex		dd	ex
 cpack	dd	pack
@@ -223,7 +223,32 @@ dots:	push	ecx
 		pop		esi
 		pop		ecx
 		ret
-ex:		call find
+execute: 
+		_DUP
+		mov	eax,[-4+edi*4]
+		and	al,0xF0
+		call find
+		jnz	abort
+		DROP
+		jmp	[forth2+ecx*4]
+ignore:	pop edi
+		pop edi
+nul2:	ret
+load:	push edi
+		mov	edi, blocks 
+		shr	edi,2 ; div 4
+inter:	mov	edx, [edi * 4]
+		inc edi
+		and edx,0xf
+		call [spaces + edx * 4]
+		jmp inter
+spaces:	dd	ignore, execute, nul2, nul2
+		dd nul2, nul2, nul2, nul2
+		dd nul2, nul2, nul2, nul2
+		dd nul2, nul2, nul2, nul2
+ex:		shl	eax,4
+		and al,0xF0
+		call find
 		jnz	abort
 		DROP
 		jmp	[forth2+ecx*4]
@@ -241,25 +266,49 @@ pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 
 		xor	[ESI],al
 		sub byte [ibits],7
 		ret
+compile:shl	eax,4
+		and al,0xF0
+		call find
+		jnz	abort
+		mov	eax,[forth2+ecx*4]
+		mov	edx,[here]
+		mov	byte [edx],0xE8	; call
+		add	edx,5
+		sub	eax,edx		;since 0xE8 is a relative call
+		mov	[edx - 4], eax
+		mov	[here],edx
+		DROP
+		ret
+comma:	mov	edx,[here]
+		mov	[edx],eax
+		add	edx,4
+		mov	[here],edx
+		DROP
+		ret
 ;;----dictionary----------------
-define:	inc	dword [forths]
+define:	;inc	dword [forths]
+		shl eax,4
+		and al,0xF0
 		mov	ecx,[forths]
 		mov	[forth0 + ecx*4],eax
 		mov	eax,[here]
 		mov	[forth2 + ecx*4],eax
-		DROP
+		;DROP
+		call hdot
+		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x00000009		;number of entries in dictionary
-forth0:	dd	0xC38B7F2		;abor(t)
-		dd	0x1AF2F9		;key
-		dd	0xCBB74F4	;emit
-		dd	0xE7C30E3		;spac(e)
-		dd	0x2B	;+
-		dd	0x2E	;.
-		dd	0x1773	;.s
-		dd	0x18f672 ;clr
-		dd	0x3B	;  ";"
+forths	dd	0x0000000A		;number of entries in dictionary
+forth0:	dd	0xC38B7F20		;abor(t)
+		dd	0x1AF2F90		;key
+		dd	0xCBB74F40	;emit
+		dd	0xE7C30E30		;spac(e)
+		dd	0x2B0	;+
+		dd	0x2E0	;.
+		dd	0x17730	;.s
+		dd	0x18f6720 ;clr
+		dd	0x3B0	;  ";"
+		dd	0x2C0	; ","
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -271,6 +320,7 @@ forth2:	dd	abort
 		dd	dots
 		dd	clr
 		dd	semi
+		dd  load
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
@@ -279,6 +329,11 @@ gdt0	dw 0, 0, 0, 0
 		dw 0FFFFh, 0, 0x9200, 0xCF	;data
 gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
+
+align 4
+blocks:
+	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
+
 end:	;because we are a flat binary
 edata:
 dictionary:
