@@ -240,10 +240,11 @@ execute: ;(n -- )
 		jnz	abort
 .gogo	DROP
 		jmp	[forth2+ecx*4]
-ignore:	DROP ;(n -- )
+ignore:	DROP ;(n -- ) ; note this seems to actually exit the load loop
 		pop edi
 		pop edi
-nul2:	ret
+nul2:	DROP	; need to DROP or the comment gets left on the stack
+		ret
 load:	push edi
 		shl	eax, 8 ; not 10 - as we are doing it in 32bit words
 		mov	edi, eax
@@ -261,10 +262,10 @@ spaces:	dd	ignore, execute, imnum, def1
 		dd nul2, nul2, nul2, nul2
 ex:		shl	eax,4
 		and al,0xF0
-		add al,0x01
-		call find	;finding macros
-		jnz	.fort
-			jmp .gogo
+		;add al,0x01
+		;call find	;finding macros
+		;jnz	.fort
+		;	jmp .gogo
 .fort	and al,0xF0
 		call find
 		jnz	abort
@@ -495,7 +496,7 @@ tins:	_DUP
 		jmp	.loop
 .end	;move stuff from stack and gogo dance
 		DROP
-		push	edi
+gogo:	push	edi
 		shl	eax,4
 		add	eax,[esi]	;we will have the word type here at NOS
 		mov	edi,[blk]
@@ -536,7 +537,11 @@ blkinc	call clr
 blkdec	call	clr
 		dec dword [blk]
 		ret
-ekeys:	dd	blkinc,numbnow,whiw,nop0,nop0,nop0	;a,b,c,d,e,f
+delt:	xor eax,eax
+		_DUP
+		xor eax,eax
+		jmp gogo		
+ekeys:	dd	blkinc,numbnow,whiw,delt,nop0,nop0	;a,b,c,d,e,f
 		dd	grew,eleft,nop0,edown,eup,eright	;g,h,i,j,k,l
 		dd	cyaw,numb,nop0,nop0,nop0,redw	;m,n,o,p,q,r
 		dd	nop0,nop0,nop0,magw,nop0,nop0	;s,t,u,v,w,x
@@ -604,7 +609,11 @@ display	dd	dbtext, dtext, dno, dtext
 		dd	dtext, dtext, dtext, dtext
 colours	db	0x0,0xe,0xe,0x4,0xa,0xa,0xa,0xb	; x,bright yellow * 2, bright red, bright green*3,cyan
 		db	0xe,0xf,0xf,0xf,0x6,0x0,0x0,0x0 ; bright yellow, white * 3, magenta
-dbtext:	dec ebx
+dbtext:	test eax,eax
+		jnz .com
+			mov eax,0x16
+			jmp dtext
+.com	dec ebx
 		dec	ebx
 dtext:	and	al,0xF0
 .loop	test	eax,eax
@@ -706,14 +715,6 @@ gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
 
 times	0x2000 - ($ - $$) db 0
-;blocks:	;block 48
-;	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
-;times	0x2400 - ($ - $$) db 0 ;block 49
-;	dd	0x12346, 0x12126, 0x0 ; 1234 1212 
-;times	0x2800 - ($ - $$) db 0 ;block 4a
-;	dd	0x12789 
-;; space for 10 blocks - this is temporary till we get the memory layout sorted.
-;times	0x4800 - ($ - $$) db 0
 incbin "blocks.bin"
 end:	;because we are a flat binary
 edata:
