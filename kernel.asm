@@ -219,12 +219,13 @@ dots:	push	ecx
 		push	eax
 		mov		ecx, 0xa0000
 		sub		ecx, esi
+		jz .end
 		shr		ecx,2
 .loop	push	ecx
 		call	hdot
 		pop		ecx
 		next	.loop
-		pop		eax
+.end	pop		eax
 		pop		esi
 		pop		ecx
 		ret
@@ -257,7 +258,7 @@ inter:	mov	edx, [edi * 4]
 		call [spaces + edx * 4]
 		jmp inter
 spaces:	dd	ignore, execute, nul2, def1
-		dd comp1, nul2, nul2, nul2
+		dd comp1, nul2, nul2, compmacr
 		dd nul2, nul2, nul2, nul2
 		dd nul2, nul2, nul2, nul2
 ex:		shl	eax,4
@@ -296,7 +297,7 @@ comp1:	and al,0xF0
 .fort	and al,0xF0
 		call find
 		jnz	abort
-		mov	eax,[forth2+ecx*4]
+comp2:	mov	eax,[forth2+ecx*4]
 		mov	edx,[here]
 		mov	byte [edx],0xE8	; call
 		add	edx,5
@@ -305,6 +306,11 @@ comp1:	and al,0xF0
 		mov	[here],edx
 		DROP
 		ret
+compmacr:	and al,0xF0
+			add al,0x01
+			call find
+			jnz	abort
+			jmp comp2
 comma:	mov	edx,[here]
 		mov	[edx],eax
 		add	edx,4
