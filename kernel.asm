@@ -235,8 +235,9 @@ ignore:	pop edi
 		pop edi
 nul2:	ret
 load:	push edi
-		mov	edi, blocks 
-		shr	edi,2 ; div 4
+		shl	eax, 8 ; not 10 - as we are doing it in 32bit words
+		mov	edi, eax
+		DROP
 inter:	mov	edx, [edi * 4]
 		inc edi
 		and edx,0xf
@@ -289,6 +290,8 @@ comma:	mov	edx,[here]
 define:	;inc	dword [forths]
 		shl eax,4
 		and al,0xF0
+		_DUP
+		call hdot
 		mov	ecx,[forths]
 		mov	[forth0 + ecx*4],eax
 		mov	eax,[here]
@@ -298,7 +301,7 @@ define:	;inc	dword [forths]
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x0000000A		;number of entries in dictionary
+forths	dd	0x0000000B		;number of entries in dictionary
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
@@ -308,6 +311,7 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x17730	;.s
 		dd	0x18f6720 ;clr
 		dd	0x3B0	;  ";"
+		dd	0xD9BF0E40	; load
 		dd	0x2C0	; ","
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
@@ -321,6 +325,7 @@ forth2:	dd	abort
 		dd	clr
 		dd	semi
 		dd  load
+		dd	comma
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
@@ -330,10 +335,11 @@ gdt0	dw 0, 0, 0, 0
 gdt		dw gdt - gdt0 - 1			;size of gdt
 		dd	gdt0					;address of gdt
 
-align 4
+times	0x2000 - ($ - $$) db 0
 blocks:
 	dd	0x17731, 0x17731, 0x17731, 0x0 ; .s .s .s
-
+;; space for 10 blocks - this is temporary till we get the memory layout sorted.
+times	0x4800 - ($ - $$) db 0
 end:	;because we are a flat binary
 edata:
 dictionary:
