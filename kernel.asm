@@ -176,9 +176,6 @@ emit:	mov	ah,[colour]
 		DROP
 space:	add ebx,2
 		ret
-plus:	add [esi],eax	;add tos to nos
-		DROP
-		ret
 semi:	mov	edx,[here]
 		mov	byte [edx],0xC3	;ret opcode
 		inc	dword [here]
@@ -259,7 +256,7 @@ inter:	mov	edx, [edi * 4]
 spaces:	dd	ignore, execute, imnum, def1
 		dd comp1, compnum, nul2, compmacr
 		dd nul2, nul2, nul2, nul2
-		dd nul2, nul2, nul2, nul2
+		dd variable, nul2, nul2, nul2
 ex:		shl	eax,4
 		and al,0xF0
 		;add al,0x01
@@ -453,9 +450,35 @@ cdup:	mov edx,[here]
 		add	edx,5
 		mov	[here],edx
 		ret
+variable:
+		_DUP
+		call hdot
+		mov ecx,[forths]
+		and al,0xf0
+		mov [forth0 + ecx*4],eax
+		mov dword [forth2 + ecx*4],var1
+		inc ecx
+		inc eax ;macro
+		mov [forth0 + ecx*4],eax
+		mov dword [forth2 + ecx*4],var2
+		inc ecx
+		mov eax,[here]
+		mov [forth2 + ecx*4],eax
+		add dword [forths],3
+		;DROP
+		call hdot
+		ret
+		
+var1:	;use side effect that ecx contains word number in dictionary
+		_DUP
+		mov eax,[8+forth2+ecx*4]
+		ret
+var2: ;macro
+		mov eax,[4+forth2+ecx*4]
+		jmp litral
 compnum: and al,0xF0
 		 shr eax,4
-		call cdup
+litral:	call cdup
 		mov	edx,[here]
 		mov	byte [edx],0xb8	;mov eax,lit
 		mov	dword [edx+1],eax
@@ -463,7 +486,6 @@ compnum: and al,0xF0
 		mov [here],edx
 		DROP
 		ret
-variable:			
 ;;----editor--------------------
 xy	dd	0x0
 blk	dd	0x48
@@ -645,23 +667,20 @@ define:	;inc	dword [forths]
 		shl eax,4
 def1:	and al,0xF0
 		add	al,[dict]
-		_DUP
-		call hdot
 		mov	ecx,[forths]
 		mov	[forth0 + ecx*4],eax
 		mov	eax,[here]
 		mov	[forth2 + ecx*4],eax
-		;DROP
-		call hdot
+		DROP
+		;call hdot
 		inc dword [forths]
 		ret
 ;lables
-forths	dd	0x00000017	;number of entries in dictionary
+forths	dd	0x00000015	;number of entries in dictionary
 forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x1AF2F90		;key
 		dd	0xCBB74F40	;emit
 		dd	0xE7C30E30		;spac(e)
-		dd	0x2B0	;+
 		dd	0x2E0	;.
 		dd	0x17730	;.s
 		dd	0x18f6720 ;clr
@@ -674,7 +693,6 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0x19AC0	; 3,
 		dd	0xCDBF9740	; fort
 		dd	0xDB871F20	; macr
-		dd	0x193AF01	; dup (macro)
 		dd	0xD1979650	; here
 		dd	0x1936e10	; dma
 		dd	0xa5160c40	; READ
@@ -686,7 +704,6 @@ forth2:	dd	abort
 		dd	KEY
 		dd	emit
 		dd	space
-		dd	plus
 		dd	hdot
 		dd	dots
 		dd	clr
@@ -699,7 +716,6 @@ forth2:	dd	abort
 		dd	comma3
 		dd	forth
 		dd	macro
-		dd	cdup
 		dd	gethere
 		dd	dma
 		dd	read
