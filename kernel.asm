@@ -16,6 +16,12 @@
 	jnz	%1
 %endmacro
 
+%macro	SWAP 0
+	push dword [esi]
+	mov	[esi],eax
+	pop	eax
+%endmacro
+
 code:	;we don't have a code and data section this is a flat binary
 MULTIBOOT_PAGE_ALIGN   equ 1<<0
 MULTIBOOT_MEMORY_INFO  equ 1<<1
@@ -51,36 +57,72 @@ abort:
 preaccept:
 	_DUP
 	xor	eax,eax
+	mov	dword [chars],0x0
 accept:
 	call KEY
-	cmp		al,'.'
-	jne		.ne
-		call dots
+	;cmp		al,'.'
+	;jne		.ne
+	;	call dots
 .ne		
-	cmp	al,' '
-	jne	.af
+	cmp	al,5
+	jae	accept1		;(packed space)
+		cmp	al,0
+		jz .bf
+		;al = 1,2,3
+		mov	ecx,[packs-4+eax*4]
+		mov	[newpack],ecx
+		mov	ecx,[ex_s-4+eax*4]
+		mov	[newex],ecx
+		mov	cl,[ccol-1+eax]
+		mov	[newcol],cl
+.bf:	
+		mov	ecx,[cex]
+		cmp	dword [chars],0x0
+		jnz	.else
+		DROP
+		mov	ecx,nop1
+		jmp	.af
+.else:	mov	eax,' '
 		call emit
-		call ex
+.af:	call ecx	;ex_s old choice
+		mov	ecx,[newpack]
+		mov	[cpack],ecx
+		mov	ecx,[newex]
+		mov	[cex],ecx
+		mov	cl,[newcol]
+		mov	[colour],cl
 		jmp preaccept
-.af:
+accept1:
 	_DUP
 	call emit
-	call pack
+	call [cpack]
+	inc	dword [chars]
 	DROP
 	jmp accept
 	jmp	$					;loop forever (v.important)
-
+packs	dd	pack, numpack, pack, pack	
+ex_s		dd	ex, nop0,	nop0, nop0
+ccol	db	0x07, 0x08, 0x06, 0x05
+cex		dd	ex
+newex	dd 	ex
+newcol	db	0x07
+newpack dd	pack 
+cpack	dd	pack
+chars dd 0x0
+;;-----nops---
+nop1:	DROP
+nop0:	ret	
 ;;---------------------Basic Words---------------------
 keys	db	0x0, 0x1B,'1','2','3','4','5','6','7','8','9','0','-','=',0 	; null,ESC,BKSP
 		db	0x0,'q','w','e','r','t','y','u','i','o','p','[',']',0			; tab,cr 
-		db	0x0,'a','s','d','f','g','h','j','k','l',';',0,'\'
+		db	0x0,'a','s','d','f','g','h','j','k','l',';',0,' '
 		db	0x0,' ','z','x','c','v','b','n','m',',','.','/',0				; lshft,rshft
-		db	'*',0x0,' ',0x0,'1','2','3'							; alt,space
+		db	'*',0x0,0x0,0x0,1,2,3,4							; alt,space
 shift	db	0x0, 0x1B,'!','@','£','$','%','^','&','*','(',')','_','+',0 	; null,ESC,BKSP
 		db	0x0,'Q','W','E','R','T','Y','U','I','O','P','{','}',0			; tab,cr 
 		db	0x0,'A','S','D','F','G','H','J','K','L',':','"','|'
 		db	0x0,'~','Z','X','C','V','B','N','M','<','>','?',0				; lshft,rshft
-		db	'*',0x0,' ',0x0,1,2,3										; alt,space, ,f1,f2,f3
+		db	'*',0x0,' ',0x0,1,2,3,4										; alt,space, ,f1,f2,f3
 board	dd	keys
 colour	db 0x07	; grey
 KEY:	_DUP	
@@ -108,7 +150,7 @@ KEY:	_DUP
 		jne		.kbspecnd
 			mov EDX,shift
 			jmp .loop
-.kbspecnd	cmp		al,	0x3e		;ignore key ups and after f3
+.kbspecnd	cmp		al,	0x3f		;ignore key ups and after f4
 		jnc		.loop
 		
 		mov		al,[edx+eax]
@@ -139,6 +181,22 @@ hdot:	mov	ecx,8		;loop over the 8 hex digits in a cell
 		mov	eax,' '
 		call emit
 		ret
+numpack:	;packs a hex digit - ignores any keys that are not hex
+		cmp	al,'0'
+		jb	.end
+		cmp	al,'9'
+		ja	.let
+		;'0'<=al<='9'
+		sub	al,'0'
+		jmp	.pree
+.let	cmp	al,'a'
+		jb	.end
+		cmp	al,'f'
+		ja	.end
+		sub	al,('a'-0xa)
+.pree	shl	dword [esi],4
+		add	[esi],al
+.end	ret		
 dots:	push	ecx
 		push	esi
 		push	eax
