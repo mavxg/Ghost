@@ -182,9 +182,19 @@ semi:	mov	edx,[here]
 		ret
 		
 hdigits	db	'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
-hdot:	mov	ecx,8		;loop over the 8 hex digits in a cell
+hdot:	
+		mov	ecx,8		;loop over the 8 hex digits in a cell
+		test eax,eax
+		jnz .preloop
+			mov ecx,1 ; only print the one 0
+			jmp .loop
+.preloop rol eax,4
+		;_DUP
+		test ax,0x0f
+		jnz .inloop
+		next .preloop
 .loop:	rol	eax, 4
-		_DUP
+.inloop	_DUP
 		and	eax,0x0F
 		mov	al,[hdigits + eax]
 		call	emit
@@ -240,6 +250,7 @@ execute: ;(n -- )
 ignore:	DROP ;(n -- ) ; note this seems to actually exit the load loop
 		pop edi
 		pop edi
+		ret
 nul2:	DROP	; need to DROP or the comment gets left on the stack
 		ret
 load:	push edi
@@ -451,8 +462,8 @@ cdup:	mov edx,[here]
 		mov	[here],edx
 		ret
 variable:
-		_DUP
-		call hdot
+		;_DUP
+		;call hdot
 		mov ecx,[forths]
 		and al,0xf0
 		mov [forth0 + ecx*4],eax
@@ -465,8 +476,9 @@ variable:
 		mov eax,[here]
 		mov [forth2 + ecx*4],eax
 		add dword [forths],3
-		;DROP
-		call hdot
+		DROP
+		;_DUP
+		;call hdot
 		ret
 		
 var1:	;use side effect that ecx contains word number in dictionary
@@ -474,6 +486,7 @@ var1:	;use side effect that ecx contains word number in dictionary
 		mov eax,[8+forth2+ecx*4]
 		ret
 var2: ;macro
+		_DUP
 		mov eax,[4+forth2+ecx*4]
 		jmp litral
 compnum: and al,0xF0
@@ -586,6 +599,7 @@ edit:	push edi ;(blk -- )
 		call	[ekeys + eax * 4]
 .ctrlend:
 		DROP
+		call clr
 		jmp	.loop
 .end	DROP
 		call	clr
@@ -643,8 +657,11 @@ dtext:	and	al,0xF0
 		rol	eax,7
 		_DUP
 		and	eax,0x7F
-		call emit
-		and al,0x80
+		jnz .emit
+			DROP
+			jmp .postemit
+.emit	call emit
+.postemit	and al,0x80
 		jmp	.loop
 .end	DROP
 		inc ebx
