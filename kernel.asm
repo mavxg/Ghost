@@ -43,14 +43,15 @@ abort:
 	mov esp, 0x9f800		;set return stack
 	mov ebx, 0xB8000
 	mov	dword [here],dictionary
-	mov dword [forths],0x16
+	mov dword [forths],0x11
 	call clr
 	mov edx,keys
 	mov	[board],edx
 	_DUP
-	mov	eax,0x4d;forth0
+	mov	eax,0x48;forth0
 	;call	hdot
-	;call	load
+	call	load
+	jmp abort
 	;_DUP
 preaccept:
 	_DUP
@@ -521,6 +522,10 @@ litral:	call cdup
 gethere	_DUP
 		mov	eax,[here]
 		ret
+plushere
+		add [here],eax
+		DROP
+		ret
 forth	mov	byte [dict],0x0
 		ret
 macro	mov	byte [dict],0x1
@@ -543,12 +548,12 @@ def1:	and al,0xF0
 ;lables
 forths	dd	0x0
 forth0:	dd	0xC38B7F20		;abor(t)
-		dd	0x1AF2F90		;key
-		dd	0xCBB74F40	;emit
-		dd	0xE7C30E30		;spac(e)
-		dd	0x2E0	;.
+		;dd	0x1AF2F90		;key
+		;dd	0xCBB74F40	;emit
+		;dd	0xE7C30E30		;spac(e)
+		;dd	0x2E0	;.
 		dd	0x17730	;.s
-		dd	0x18f6720 ;clr
+		dd	0x32f80 ;ex
 		dd	0x3B1	;  ";" (macro)
 		dd	0xD9BF0E40	; load
 		dd	0x2C0	; ","
@@ -562,17 +567,18 @@ forth0:	dd	0xC38B7F20		;abor(t)
 		dd	0xa5160c40	; READ
 		dd	0xaf4a4d40	; WRIT(E)
 		dd	0xa7424ce0	; SPIN
-		dd	0xe1871eb0	; pack
-		dd	0xddd76f00	; nump
+		;dd	0xe1871eb0	; pack
+		;dd	0xddd76f00	; nump
+		dd 	0x57a32f20	; +her (e)
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
-		dd	KEY
-		dd	emit
-		dd	space
-		dd	hdot
+		;dd	KEY
+		;dd	emit
+		;dd	space
+		;dd	hdot
 		dd	dots
-		dd	clr
+		dd	ex
 		dd	semi
 		dd  load
 		dd	comma
@@ -586,8 +592,9 @@ forth2:	dd	abort
 		dd	read
 		dd 	write
 		dd	spin
-		dd  pack
-		dd	numpack
+		;dd  pack
+		;dd	numpack
+		dd	plushere
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
