@@ -48,11 +48,16 @@ abort:
 	mov esi, 0xa0000		;set data stack
 	mov esp, 0x9f800		;set return stack
 	mov ebx,0xB8000
+	mov	dword [here],dictionary
 	call clr
 	mov edx,keys
 	mov	[board],edx
 	_DUP
+	mov	eax,forth0
+	call	hdot
 	_DUP
+	mov	eax,dictionary
+	call	hdot
 	_DUP
 preaccept:
 	_DUP
@@ -60,22 +65,21 @@ preaccept:
 	mov	dword [chars],0x0
 accept:
 	call KEY
+	cmp	al,0x06	;temporary backspace
+	jne	.ne
+	sub	ebx,[chars]
+	sub ebx,[chars]
+	;should add stuff here to do
+	DROP
+	DROP
+	jmp	preaccept
 	;cmp		al,'.'
 	;jne		.ne
 	;	call dots
 .ne		
 	cmp	al,5
 	jae	accept1		;(packed space)
-		cmp	al,0
-		jz .bf
-		;al = 1,2,3
-		mov	ecx,[packs-4+eax*4]
-		mov	[newpack],ecx
-		mov	ecx,[ex_s-4+eax*4]
-		mov	[newex],ecx
-		mov	cl,[ccol-1+eax]
-		mov	[newcol],cl
-.bf:	
+		push	eax
 		mov	ecx,[cex]
 		cmp	dword [chars],0x0
 		jnz	.else
@@ -85,12 +89,17 @@ accept:
 .else:	mov	eax,' '
 		call emit
 .af:	call ecx	;ex_s old choice
-		mov	ecx,[newpack]
+		_DUP
+		pop	eax
+		cmp	al,0
+			jz	.bf
+		mov	ecx,[packs-4+eax*4]
 		mov	[cpack],ecx
-		mov	ecx,[newex]
+		mov	ecx,[ex_s-4+eax*4]
 		mov	[cex],ecx
-		mov	cl,[newcol]
+		mov	cl,[ccol-1+eax]
 		mov	[colour],cl
+.bf		DROP
 		jmp preaccept
 accept1:
 	_DUP
@@ -100,20 +109,18 @@ accept1:
 	DROP
 	jmp accept
 	jmp	$					;loop forever (v.important)
+here	dd	dictionary	
 packs	dd	pack, numpack, pack, pack	
 ex_s		dd	ex, nop0,	nop0, nop0
 ccol	db	0x07, 0x08, 0x06, 0x05
 cex		dd	ex
-newex	dd 	ex
-newcol	db	0x07
-newpack dd	pack 
 cpack	dd	pack
 chars dd 0x0
 ;;-----nops---
 nop1:	DROP
 nop0:	ret	
 ;;---------------------Basic Words---------------------
-keys	db	0x0, 0x1B,'1','2','3','4','5','6','7','8','9','0','-','=',0 	; null,ESC,BKSP
+keys	db	0x0, 0x1B,'1','2','3','4','5','6','7','8','9','0','-','=',0x6 	; null,ESC,BKSP
 		db	0x0,'q','w','e','r','t','y','u','i','o','p','[',']',0			; tab,cr 
 		db	0x0,'a','s','d','f','g','h','j','k','l',';',0,' '
 		db	0x0,' ','z','x','c','v','b','n','m',',','.','/',0				; lshft,rshft
@@ -169,6 +176,11 @@ space:	add ebx,2
 plus:	add [esi],eax	;add tos to nos
 		DROP
 		ret
+semi:	mov	edx,[here]
+		mov	byte [edx],0xC3	;ret opcode
+		inc	dword [here]
+		ret
+		
 hdigits	db	'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 hdot:	mov	ecx,8		;loop over the 8 hex digits in a cell
 .loop:	rol	eax, 4
@@ -224,22 +236,30 @@ find:	mov ecx,[forths]
 		pop	edi
 		ret
 ibits:	db	0x28
-pack:	and	al,0xEF		;this implementation is very fragile - do not type more than 4 characters
+pack:	and	al,0x7F		;this implementation is very fragile - do not type more than 4 characters
 		shl	dword [ESI],7
 		xor	[ESI],al
 		sub byte [ibits],7
 		ret
 ;;----dictionary----------------
+define:	inc	dword [forths]
+		mov	ecx,[forths]
+		mov	[forth0 + ecx*4],eax
+		mov	eax,[here]
+		mov	[forth2 + ecx*4],eax
+		DROP
+		ret
 ;lables
-forths	dd	0x00000008		;number of entries in dictionary
-forth0:	dd	0x1		;abor(t)
-		dd	0x2		;key
-		dd	0xCBB74E4	;emit
-		dd	0x4		;spac(e)
+forths	dd	0x00000009		;number of entries in dictionary
+forth0:	dd	0xC38B7F2		;abor(t)
+		dd	0x1AF2F9		;key
+		dd	0xCBB74F4	;emit
+		dd	0xE7C30E3		;spac(e)
 		dd	0x2B	;+
 		dd	0x2E	;.
-		dd	0x1763	;.s
-		dd	0x18f662 ;clr
+		dd	0x1773	;.s
+		dd	0x18f672 ;clr
+		dd	0x3B	;  ";"
 forth1:	times 512 dd 0x0		;space for user words
 ;addresses
 forth2:	dd	abort
@@ -250,6 +270,7 @@ forth2:	dd	abort
 		dd	hdot
 		dd	dots
 		dd	clr
+		dd	semi
 		times 512 dd 0x0		;space for user words
 		
 ;;---------------------GDT-----------------------------
